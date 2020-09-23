@@ -1,0 +1,263 @@
+VERSION 5.00
+Begin VB.UserDocument udocToolTips 
+   ClientHeight    =   3525
+   ClientLeft      =   0
+   ClientTop       =   0
+   ClientWidth     =   3735
+   HScrollSmallChange=   225
+   ScaleHeight     =   3525
+   ScaleWidth      =   3735
+   VScrollSmallChange=   225
+   Begin VB.CommandButton cmdAbout 
+      Caption         =   "&About"
+      Height          =   375
+      Left            =   120
+      TabIndex        =   8
+      Top             =   3060
+      Width           =   3495
+   End
+   Begin VB.TextBox txtToolTips 
+      Height          =   285
+      Left            =   1560
+      TabIndex        =   7
+      Top             =   2700
+      Width           =   1995
+   End
+   Begin VB.ListBox list 
+      Height          =   1815
+      Left            =   60
+      TabIndex        =   0
+      Top             =   300
+      Width           =   3615
+   End
+   Begin VB.Label lblCaptionControl 
+      AutoSize        =   -1  'True
+      Height          =   195
+      Left            =   1560
+      TabIndex        =   6
+      Top             =   2460
+      Width           =   45
+   End
+   Begin VB.Label lblNameControl 
+      AutoSize        =   -1  'True
+      Height          =   195
+      Left            =   1560
+      TabIndex        =   5
+      Top             =   2220
+      Width           =   45
+   End
+   Begin VB.Label lblTooltip 
+      AutoSize        =   -1  'True
+      Caption         =   "ToolTip of control:"
+      Height          =   195
+      Left            =   120
+      TabIndex        =   4
+      Top             =   2700
+      Width           =   1290
+   End
+   Begin VB.Label lblCaption 
+      AutoSize        =   -1  'True
+      Caption         =   "Caption of control:"
+      Height          =   195
+      Left            =   120
+      TabIndex        =   3
+      Top             =   2460
+      Width           =   1290
+   End
+   Begin VB.Label lblName 
+      AutoSize        =   -1  'True
+      Caption         =   "Name of control:"
+      Height          =   195
+      Left            =   120
+      TabIndex        =   2
+      Top             =   2220
+      Width           =   1170
+   End
+   Begin VB.Label lblInfo 
+      AutoSize        =   -1  'True
+      Caption         =   "Controls that can have Tooltips:"
+      Height          =   195
+      Left            =   120
+      TabIndex        =   1
+      Top             =   60
+      Width           =   2250
+   End
+End
+Attribute VB_Name = "udocToolTips"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = True
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = True
+Option Explicit
+
+Dim mcmpCurrentForm As VBComponent      'current form
+Dim mcolCtls        As VBControls       'form's controls
+Dim controlarray() As VBControl              'link from list's listdata to the control name
+
+Private CurrentProject As VBIDE.VBComponent
+Private CurrentComponent As VBIDE.VBProject
+
+Public Sub Project_Changed(ByRef Info As VBIDE.VBProject, ByVal EventType As Integer)
+UpdateAll 1         ' Only occurs when project has been removed
+End Sub
+
+Public Sub Files_Changed(ByRef Info As VBIDE.VBComponent, ByVal EventType As Integer)
+UpdateAll 2
+End Sub
+
+Public Sub Controls_Changed(ByRef Info As VBIDE.VBControl, ByVal EventType As Integer)
+UpdateAll 3
+End Sub
+
+Private Sub UpdateAll(ByVal Reftype As Integer)
+
+On Error GoTo nexter
+
+Dim I As Integer
+Dim ctl As VBControl
+Dim sTmp As String
+Dim ti As String
+Dim sCtlName As String
+Dim nCtlArrIndex As Integer
+
+If modMain.InRunMode(VBInstance) Then Exit Sub
+
+ClearAll
+
+If VBInstance.ActiveVBProject Is Nothing Then Exit Sub
+
+'load the component
+Set mcmpCurrentForm = VBInstance.SelectedVBComponent
+
+'check to see if we have a valid component
+If mcmpCurrentForm Is Nothing Then
+  Exit Sub
+End If
+
+'make sure the active component is a form, user control or property page
+If (mcmpCurrentForm.Type <> vbext_ct_VBForm) And _
+   (mcmpCurrentForm.Type <> vbext_ct_UserControl) And _
+   (mcmpCurrentForm.Type <> vbext_ct_DocObject) And _
+   (mcmpCurrentForm.Type <> vbext_ct_PropPage) Then
+  Exit Sub
+End If
+
+Set mcolCtls = mcmpCurrentForm.Designer.VBControls
+ReDim controlarray(0 To 0) As VBControl
+I = 0
+
+For Each ctl In mcmpCurrentForm.Designer.VBControls
+  'try to get the tooltiptext
+  On Error Resume Next
+  ti = ctl.Properties!ToolTipText
+  If Err Then
+    'doesn't have a tabindex
+    Err.Clear
+    GoTo SkipIt
+  End If
+  On Error GoTo nexter
+  
+  sTmp = ControlName(ctl)
+  ReDim Preserve controlarray(0 To UBound(controlarray) + 1) As VBControl
+  I = I + 1
+  Set controlarray(UBound(controlarray)) = ctl
+  
+  'add it to the list
+  list.AddItem sTmp
+  list.ItemData(list.NewIndex) = I
+  list.Refresh
+
+SkipIt:
+Next
+
+Exit Sub
+
+nexter:
+MsgBox "Error: " & Err.Description & ", " & Err.Source
+
+End Sub
+
+Private Function ControlName(ctl As VBIDE.VBControl) As String
+  On Error Resume Next
+
+  Dim sTmp As String
+  Dim sCaption As String
+  Dim I As Integer
+  
+  sTmp = ctl.Properties!Name
+  sCaption = ctl.Properties!Caption
+  'will be null if there isn't one
+  
+  I = ctl.Properties!Index
+  If I >= 0 Then
+    sTmp = sTmp & "(" & I & ")"
+  End If
+  
+  If Len(sCaption) > 0 Then
+    ControlName = sTmp & " - '" & sCaption & "'"
+  Else
+    ControlName = sTmp
+  End If
+  
+  Err.Clear
+  
+End Function
+
+Private Sub cmdAbout_Click()
+MsgBox "ToolTip Helper version 1.0 by Jolyon Bloomfield, Feb 2000." & vbCrLf & _
+        "Hi there all, this is just a simple proggy I made while hallucinating over the amount of tooltips I had to put into my program... I am by no means an add-in writer, but then again, this is pretty complex. Uh... enjoy it, and if you use part of it, please give me credit! Any bugs, pleas, thoughts, critisicisms, etc, please tell me at Jolyon_B@Hotmail.Com." & vbCrLf & _
+        "Thanks, Jolyon Bloomfield. Jolyon_B@Hotmail.Com"
+End Sub
+
+Private Sub list_Click()
+
+On Error GoTo ExitIt
+
+Dim ctl As VBIDE.VBControl
+Set ctl = controlarray(list.ItemData(list.ListIndex))
+
+lblNameControl.Caption = ctl.Properties!Name
+On Error Resume Next
+lblCaptionControl.Caption = ctl.Properties!Caption
+If Err Then lblCaptionControl.Caption = ""
+Err.Clear
+txtToolTips.Text = ctl.Properties!ToolTipText
+txtToolTips.Enabled = True
+Exit Sub
+
+ExitIt:
+MsgBox "Error in List_Click: " & Err.Description
+
+End Sub
+
+Private Sub ClearAll()
+list.Clear
+lblNameControl.Caption = ""
+lblCaptionControl.Caption = ""
+txtToolTips.Text = ""
+txtToolTips.Enabled = False
+End Sub
+
+Private Sub txtToolTips_Change()
+
+On Error Resume Next
+
+Dim ctl As VBIDE.VBControl
+Set ctl = controlarray(list.ItemData(list.ListIndex))
+
+If Err Then Exit Sub
+
+ctl.Properties!ToolTipText = txtToolTips.Text
+
+End Sub
+
+Private Sub txtToolTips_KeyPress(KeyAscii As Integer)
+If KeyAscii = vbKeyReturn Then
+txtToolTips_Change
+If list.ListIndex < list.ListCount - 1 Then list.ListIndex = list.ListIndex + 1 Else list.ListIndex = 0
+End If
+End Sub
+
+Private Sub UserDocument_Show()
+UpdateAll 1
+End Sub
